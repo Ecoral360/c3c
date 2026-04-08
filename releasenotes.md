@@ -29,6 +29,8 @@
 - Improve error message when keyword is used instead of an expression. #3088
 - Add `--warn-recursivecontracts`.
 - Mutex.destroy and friends no longer return optionals.
+- Remove `@operator(!=)` overload.
+- Add `@operator(<)` overload, enabling type comparison overloads.
 
 ### Stdlib changes
 - `std::collections::RingBuffer` is renamed `RingList`.
@@ -45,6 +47,7 @@
 - `$$trap` was incorrectly marked noreturn.
 - Recursive inclusion of contracts was not detected.
 - `\r` was not filtered when piping a source file from stdin.
+- SHA-3 and Keccak contexts are now explicitly `@mustinit` structures. #3110
 
 ## 0.7.11 Change list
 
