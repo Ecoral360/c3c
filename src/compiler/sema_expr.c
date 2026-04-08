@@ -5300,6 +5300,7 @@ static inline bool sema_expr_analyse_member_access(SemaContext *context, Expr *e
 			return sema_expr_rewrite_to_type_property(context, expr, decl->type->canonical, type_property, decl->type->canonical);
 		case TYPE_PROPERTY_EXTNAMEOF:
 		case TYPE_PROPERTY_PARAMSOF:
+		case TYPE_PROPERTY_STRUCTPARAMSOF:
 		case TYPE_PROPERTY_RETURNS:
 		case TYPE_PROPERTY_INF:
 		case TYPE_PROPERTY_LEN:
@@ -5557,6 +5558,61 @@ static inline bool sema_create_const_paramsof(Expr *expr, Type *type)
 	return true;
 }
 
+Type *type_create_struct_2(const char *name, Type **types, const char **names, int count)
+{
+	Decl *decl = decl_new_with_type(symtab_preset(name, TOKEN_TYPE_IDENT), 0, DECL_STRUCT);
+	decl->unit = compiler.context.core_unit;
+	decl->extname = decl->name;
+	AlignSize offset = 0;
+	AlignSize max_align = 0;
+	for (int i = 0; i < count; i++)
+	{
+		Type *member_type = types[i];
+		Decl *member = decl_new_var(symtab_preset(names[i], TOKEN_IDENT), 0, type_info_new_base(member_type, 0), VARDECL_MEMBER);
+		member->unit = compiler.context.core_unit;
+		member->type = member_type;
+		member->resolve_status = RESOLVE_DONE;
+		AlignSize align = type_abi_alignment(member_type);
+		if (align > max_align) max_align = align;
+		member->offset = aligned_offset(offset, align);
+		offset = member->offset + type_size(member_type);
+		member->alignment = align;
+		vec_add(decl->strukt.members, member);
+	}
+	decl->strukt.size = aligned_offset(offset, max_align);
+	decl->alignment = max_align;
+	decl->resolve_status = RESOLVE_DONE;
+	global_context_add_type(decl->type);
+	global_context_add_decl(decl);
+	return decl->type;
+}
+
+static inline bool sema_create_const_structparamsof(Expr *expr, Type *type)
+{
+	ASSERT_SPAN(expr, type->type_kind == TYPE_FUNC_PTR);
+	type = type->pointer;
+	Signature *sig = type->function.signature;
+	unsigned params = vec_size(sig->params);
+	Expr **param_exprs = params ? VECNEW(Expr*, params) : NULL;
+	SourceLocId loc = expr->loc;
+
+	Type* types[params] = {};
+	const char* names[params] = {};
+
+	for (unsigned i = 0; i < params; i++)
+	{
+		Decl *decl = sig->params[i];
+		names[i] = decl->name ? decl->name : "_";
+		types[i] = decl->type->canonical;
+	}
+
+	char func_name[100] = {};
+	snprintf(func_name, 100, "ReflectedStructParam_%s", type->name);
+	Type* type_reflected_struct_param = type_create_struct_2(func_name, types, names, params);
+
+	expr_rewrite_const_typeid(expr, type_reflected_struct_param);
+	return true;
+}
 
 static inline void sema_create_const_membersof(Expr *expr, Type *type, AlignSize alignment, AlignSize offset)
 {
@@ -5813,6 +5869,7 @@ static bool sema_expr_rewrite_to_typeid_property(SemaContext *context, Expr *exp
 		case TYPE_PROPERTY_NAMEOF:
 		case TYPE_PROPERTY_NAN:
 		case TYPE_PROPERTY_PARAMSOF:
+		case TYPE_PROPERTY_STRUCTPARAMSOF:
 		case TYPE_PROPERTY_QNAMEOF:
 		case TYPE_PROPERTY_RETURNS:
 		case TYPE_PROPERTY_TAGOF:
@@ -6055,6 +6112,7 @@ static bool sema_type_property_is_valid_for_type(CanonicalType *original_type, T
 					return true;
 			}
 		case TYPE_PROPERTY_PARAMSOF:
+		case TYPE_PROPERTY_STRUCTPARAMSOF:
 		case TYPE_PROPERTY_RETURNS:
 			return type_is_func_ptr(type);
 		case TYPE_PROPERTY_TAGOF:
@@ -6150,6 +6208,8 @@ static bool sema_expr_rewrite_to_type_property(SemaContext *context, Expr *expr,
 			return sema_create_const_methodsof(context, expr, type);
 		case TYPE_PROPERTY_PARAMSOF:
 			return sema_create_const_paramsof(expr, flat);
+		case TYPE_PROPERTY_STRUCTPARAMSOF:
+			return sema_create_const_structparamsof(expr, flat);
 		case TYPE_PROPERTY_RETURNS:
 			expr_rewrite_const_typeid(expr, type_infoptr(flat->pointer->function.signature->rtype)->type);
 			return true;
