@@ -2093,7 +2093,7 @@ INLINE bool sema_call_evaluate_arguments(SemaContext *context, CalledDecl *calle
 	Expr *last = NULL;
 	ArrayIndex needed = (ArrayIndex)func_param_count - (callee->struct_var ? 1 : 0);
 	// Do we need to store decls separately?
-	Decl ***macro_va_decl_ref = callee->macro && variadic == VARIADIC_RAW ? &callee->macro_va_decls : NULL;
+	Decl ***macro_va_decl_ref_maybe = callee->macro && variadic == VARIADIC_RAW ? &callee->macro_va_decls : NULL;
 	for (ArrayIndex i = 0; i < num_args; i++)
 	{
 		Expr *arg = args[i];
@@ -2183,7 +2183,7 @@ SPLAT_NORMAL:;
 			{
 				RETURN_SEMA_ERROR(arg, "A non-constant zero size splat cannot be used with raw varargs.");
 			}
-			new_args = sema_splat_arraylike_insert(context, args, inner, len, i, macro_va_decl_ref);
+			new_args = sema_splat_arraylike_insert(context, args, inner, len, i, i >= vaarg_index ? macro_va_decl_ref_maybe : NULL);
 		AFTER_SPLAT:;
 			if (!new_args) return false;
 			args = new_args;
@@ -3721,7 +3721,7 @@ static inline bool sema_expr_analyse_typecall(SemaContext *context, Expr *expr)
 	Expr **args = expr->call_expr.arguments;
 	unsigned arg_count = vec_size(args);
 	bool is_has = tag->type_call_expr.property == TYPE_PROPERTY_HAS_TAG;
-	const char *name = is_has ? "has_tagof" : "tagof";
+	const char *name = is_has ? "has_tag" : "get_tag";
 	if (arg_count != 1) RETURN_SEMA_ERROR(expr, "Expected a single string argument to '%s'.", name);
 	Expr *key = args[0];
 	if (!sema_analyse_expr_rvalue(context, key)) return false;
@@ -6494,7 +6494,7 @@ static bool sema_expr_rewrite_to_type_property(SemaContext *context, Expr *expr,
 		case TYPE_PROPERTY_GET_TAG:
 			if (!type_is_user_defined(type))
 			{
-				RETURN_SEMA_ERROR(expr, "'tagof' is not defined for builtin types like %s.", type_quoted_error_string(type));
+				RETURN_SEMA_ERROR(expr, "'get_tag' is not defined for builtin types like %s.", type_quoted_error_string(type));
 			}
 			FALLTHROUGH;
 		case TYPE_PROPERTY_HAS_TAG:
@@ -8787,6 +8787,8 @@ static bool sema_expr_analyse_shift(SemaContext *context, Expr *expr, Expr *left
 	{
 		if (!type_is_integer(flat_left)) goto FAIL;
 	}
+
+	if (!type_is_numeric(flat_right)) goto FAIL;
 
 	if (!sema_expr_check_shift_rhs(context, expr, left, flat_left, right, flat_right, failed_ref, false)) return false;
 
@@ -11336,7 +11338,7 @@ static inline bool sema_expr_analyse_lambda(SemaContext *context, Type *target_t
 		decl->resolve_status = RESOLVE_DONE;
 		SemaContext lambda_context;
 		sema_context_init(&lambda_context, context->unit);
-		if (sema_analyse_function_body(&lambda_context, decl))
+		if (sema_analyse_function_body(&lambda_context, decl, context->macro_call_depth))
 		{
 			vec_add(unit->lambdas, decl);
 		}

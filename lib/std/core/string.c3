@@ -635,18 +635,19 @@ fn sz? String.rindex_of_char(self, char character)
 
  @param [in] self
  @param [in] substr
- @pure
- @ensure return < self.len
- @require substr.len > 0 : "The string must be len 1 or more"
  @return "the index of the substring"
  @return? NOT_FOUND : "if the substring cannot be found"
+
+ @pure
+ @ensure (!substr && return == 0) || return < self.len
 *>
 fn sz? String.index_of(self, String substr)
 {
-	sz needed = substr.len;
-	if (!needed || self.len < needed) return NOT_FOUND~;
-	if (needed == 1) return self.index_of_char(substr[0]) @inline;
 
+	sz needed = substr.len;
+	if (!needed) return 0;
+	if (self.len < needed) return NOT_FOUND~;
+	if (needed == 1) return self.index_of_char(substr[0]) @inline;
 	char first = substr[0];
 	foreach (i, c: self[..^needed])
 	{
@@ -660,16 +661,17 @@ fn sz? String.index_of(self, String substr)
 
  @param [in] self
  @param [in] substr
- @pure
- @ensure return < self.len
- @require substr.len > 0 : "The substring must be len 1 or more"
  @return "the index of the substring"
  @return? NOT_FOUND : "if the substring cannot be found"
+
+ @pure
+ @ensure (substr.len == 0 && return == self.len) || return < self.len
 *>
 fn sz? String.rindex_of(self, String substr)
 {
 	sz needed = substr.len;
-	if (needed > 0 && self.len >= needed)
+	if (needed == 0) return self.len;
+	if (self.len >= needed)
 	{
 		char first = substr[0];
 		foreach_r (i, c: self[..^needed])
@@ -1088,8 +1090,11 @@ fn IntType? to_integer(String self, int base = 10) <IntType>
 			break;
 	}
 	if (len == index) return MALFORMED_INTEGER~;
+	char curr = self[index];
+	// + / - followed by ' '
+	if (curr.is_blank()) return MALFORMED_INTEGER~;
 	IntType base_used = (IntType)base;
-	if (self[index] == '0' && base == 10)
+	if (curr == '0' && base == 10)
 	{
 		index++;
 		if (index == len) return (IntType)0;
@@ -1115,7 +1120,14 @@ fn IntType? to_integer(String self, int base = 10) <IntType>
 	IntType value = 0;
 	while (index != len)
 	{
-		char c = ascii::HEX_VALUE[self[index++]];
+		curr = self[index++];
+		// Handle ending space.
+		if (curr.is_blank())
+		{
+			while (index != len) if (!self[index++].is_blank()) return MALFORMED_INTEGER~;
+			break;
+		}
+		char c = ascii::HEX_VALUE[curr];
 		if (c >= (int)base_used) return MALFORMED_INTEGER~;
 		do
 		{
