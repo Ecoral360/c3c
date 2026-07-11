@@ -11,6 +11,7 @@ typedef struct
 {
 	const char *file;
 	const char *target;
+	bool is_template;
 } BuildParseContext;
 
 typedef struct
@@ -42,6 +43,18 @@ static const char *wincrt_linking[5] = {
 	[WIN_CRT_DYNAMIC_DEBUG] = "dynamic-debug",
 	[WIN_CRT_STATIC] = "static",
 	[WIN_CRT_STATIC_DEBUG] = "static-debug",
+};
+
+static const char *win_subsystem[9] = {
+	[WIN_SUBSYSTEM_CONSOLE] = "console",
+	[WIN_SUBSYSTEM_WINDOWS] = "windows",
+	[WIN_SUBSYSTEM_NATIVE] = "native",
+	[WIN_SUBSYSTEM_POSIX] = "posix",
+	[WIN_SUBSYSTEM_BOOT_APPLICATION] = "boot",
+	[WIN_SUBSYSTEM_EFI_APPLICATION] = "efi-app",
+	[WIN_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER] = "efi-boot",
+	[WIN_SUBSYSTEM_EFI_ROM] = "efi-rom",
+	[WIN_SUBSYSTEM_EFI_RUNTIME_DRIVER] = "efi-runtime"
 };
 
 static const char *optsizes[3] = {
@@ -165,6 +178,7 @@ static const char *sanitize_modes[4] = {
 JSONObject *project_json_load(const char **filename_ref);
 Project *project_load(const char **filename_ref);
 BuildTarget *project_select_target(const char *filename, Project *project, const char *optional_target);
+JSONObject *read_library_manifest_for_path(const char *lib_path, const char **manifest_path_ref);
 
 const char *get_string(BuildParseContext context, JSONObject *table, const char *key, const char *default_value);
 int get_valid_bool(BuildParseContext context, JSONObject *json, const char *key, int default_val);

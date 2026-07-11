@@ -643,12 +643,16 @@ static inline TypeInfo *parse_type_with_base_maybe_generic(ParseContext *c, Type
 							break;
 						}
 					}
+					RANGE_EXTEND_PREV(type_info);
 					if (type_info->resolve_status == RESOLVE_DONE)
 					{
+						if (type_info->type == type_untypedlist)
+						{
+							RETURN_PRINT_ERROR_AT(poisoned_type_info, type_info, "It's not possible to create a pointer to an untyped list.");
+						}
 						ASSERT(type_info->type);
 						type_info->type = type_get_ptr(type_info->type);
 					}
-					RANGE_EXTEND_PREV(type_info);
 					break;
 				}
 				break;
@@ -3208,9 +3212,21 @@ static inline bool parse_contract_param(ParseContext *c, ContractParam **list_re
 		{
 			mod = INOUT_OUT;
 		}
+		else if (modifier == kw_own)
+		{
+			mod = INOUT_OWN;
+		}
+		else if (modifier == kw_init)
+		{
+			mod = INOUT_INIT;
+		}
+		else if (modifier == kw_drop)
+		{
+			mod = INOUT_DROP;
+		}
 		else
 		{
-			RETURN_PRINT_ERROR_LAST("'in', 'out' or 'inout' were expected.");
+			RETURN_PRINT_ERROR_LAST("'in', 'out', 'inout', 'init', 'drop' or 'own' was expected.");
 		}
 		CONSUME_OR_RET(TOKEN_RBRACKET, false);
 	}
