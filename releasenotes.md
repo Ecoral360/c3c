@@ -36,6 +36,11 @@
 - Added `time::FOREVER_PAST`, `Time::diff_years`, `Time::diff_months`, `time::day`, `time::week`, `time::month`, `time::year`.
 - Added `double.is_inf`, `float.is_inf`.
 
+### Changes / improvements
+
+### Stdlib changes
+- Add `std::collections::Ref`
+
 ## 0.8.4 Change list
 
 ### Changes / improvements
